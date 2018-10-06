@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e -o pipefail
+
+basedir=$(cd "$(dirname "$0")" && pwd -P)
+cd "$basedir"
+trap 'echo "*** FAILED"; exit 1' 0
+
+echo ===== Setup
+. activate --python=python2
+
+echo ===== Functional Tests
+pytest -q t/functional.py "$@"
+
+trap '' 0
