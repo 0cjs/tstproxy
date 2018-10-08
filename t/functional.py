@@ -66,15 +66,17 @@ class SSHClientProto(protocol.ProcessProtocol):
         self.reactor, self.received = reactor, received
     def connectionMade(self):
         self.transport.closeStdin()     # Send no input
-    def errReceived(self, data):
-        self.received.append(data)
+    def childDataReceived(self, fd, data):
+        s = self.received.setdefault(fd, '')
+        self.received[fd] = s + data
     def processEnded(self, reason):
         self.reactor.stop()
 
 def test_twisted_ssh(reactor):
     '   Demonstrate launch of OpenSSH client via twisted   '
-    received = []
+    received = {}
     proto = SSHClientProto(reactor, received)
     reactor.spawnProcess(proto, 'ssh', ['ssh', '-h'])   # Empty environment
     reactor.run()
-    assert re.search('usage: ssh', ''.join(received))
+    assert re.search('usage: ssh', received[2])
+    assert [2] == received.keys()   # Nothing but stderr
