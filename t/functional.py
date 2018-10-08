@@ -2,6 +2,7 @@
 
 import os, re, pytest
 from subprocess import Popen, PIPE
+from twisted.internet import protocol
 
 ####################################################################
 #   Framework for testing with Twisted
@@ -43,3 +44,21 @@ def test_popen_ssh():
     assert 0 <= p.wait()            # Any retval but not terminated by a signal.
     assert '' == p.stdout.read()    # XXX should close these?
     assert re.search('usage: ssh', p.stderr.read())
+
+class SSHClientProto(protocol.ProcessProtocol):
+    def __init__(self, reactor, received):
+        self.reactor, self.received = reactor, received
+    def connectionMade(self):
+        self.transport.closeStdin()     # Send no input
+    def errReceived(self, data):
+        self.received.append(data)
+    def processEnded(self, reason):
+        self.reactor.stop()
+
+def test_twisted_ssh(reactor):
+    '   Demonstrate launch of OpenSSH client via twisted   '
+    received = []
+    proto = SSHClientProto(reactor, received)
+    reactor.spawnProcess(proto, 'ssh', ['ssh', '-h'])   # Empty environment
+    reactor.run()
+    assert re.search('usage: ssh', ''.join(received))
