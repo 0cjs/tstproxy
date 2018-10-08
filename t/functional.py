@@ -1,7 +1,33 @@
 'Functional Tests'
 
-import os, re
+import os, re, pytest
 from subprocess import Popen, PIPE
+
+####################################################################
+#   Framework for testing with Twisted
+
+@pytest.fixture
+def reactor():
+    timeout_secs = 3
+    #   We want a reactor that works on all platforms.
+    from twisted.internet.selectreactor import SelectReactor
+    r = SelectReactor()
+    d = { 'forced': False }     # No `nonlocal` in Python 2
+    def force_stop():
+        d['forced'] = True
+        r.stop()
+    r.callLater(timeout_secs, force_stop)
+    yield r
+    if d['forced']: pytest.fail(
+        'Test did not stop reactor within {} secs'.format(timeout_secs))
+
+def test_reactor_fixture(reactor):
+    #   Comment out the next line to see "test did not stop reactor."
+    reactor.callWhenRunning(reactor.stop)
+    reactor.run()
+
+####################################################################
+#   Functional Tests
 
 #   Global configuration for all functional tests.
 os.environ.pop('SSH_AUTH_SOCK', None)
