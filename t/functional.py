@@ -45,6 +45,22 @@ def test_popen_ssh():
     assert '' == p.stdout.read()    # XXX should close these?
     assert re.search('usage: ssh', p.stderr.read())
 
+@pytest.mark.skip(reason='Slow test')
+def test_twisted_ssh_gpo(reactor):
+    ''' getProcessOutput() and the like are convenient, but don't give
+        us the ability to run code on process exit as we can with the
+        full interface. Thus we have to hack a timeout on the reactor
+        making the test slower than necessary.
+    '''
+    from twisted.internet.utils import getProcessOutputAndValue
+    deferred = getProcessOutputAndValue('ssh', ['-h'], reactor=reactor)
+    reactor.callLater(0.2, reactor.stop)
+    reactor.run()
+    out, err, exitcode = deferred.result
+    assert '' == out
+    assert re.search('usage: ssh', err)
+    assert 0 < exitcode
+
 class SSHClientProto(protocol.ProcessProtocol):
     def __init__(self, reactor, received):
         self.reactor, self.received = reactor, received
