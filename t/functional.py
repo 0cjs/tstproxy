@@ -1,6 +1,7 @@
 'Functional Tests'
 
 import os, re, pytest
+from random import randrange
 from subprocess import Popen, PIPE
 from twisted.internet import protocol
 
@@ -80,3 +81,27 @@ def test_twisted_ssh(reactor):
     reactor.run()
     assert re.search('usage: ssh', received[2])
     assert [2] == received.keys()   # Nothing but stderr
+
+class SSHTestServerProto(protocol.Protocol):
+    def connectionMade(self):
+        #   Perhaps we ought to try a bit more of the proto, e.g.,
+        #      write('SSH-2.0-OpenSSH_7.4p1 Debian-10+deb9u4')
+        #   or even use conch. But for now, just close.
+        self.transport.loseConnection()
+
+def test_ssh_and_server(reactor):
+    '   OpenSSH client connects to our test server.   '
+    port = randrange(10000, 65000)
+
+    factory = protocol.Factory.forProtocol(SSHTestServerProto)
+    reactor.listenTCP(port, factory, interface='127.0.0.1')
+
+    creceived = {}
+    cproto = SSHClientProto(reactor, creceived)
+    reactor.spawnProcess(cproto,
+        'ssh', ['ssh', '-T', '-p', str(port), '127.0.0.1'])
+
+    reactor.run()
+    assert 'ssh_exchange_identification: Connection closed by remote host\r\n' \
+        == creceived[2]
+    assert [2] == creceived.keys()
