@@ -1,11 +1,44 @@
 #!/usr/bin/env python3
 
-from argparse import ArgumentParser
+from    __future__      import print_function
+import  array, os, socket, sys
+from    argparse        import ArgumentParser, ArgumentTypeError
+
+PROGNAME = os.path.basename(sys.argv[0])
 
 def main():
     parser = ArgumentParser(description='TCP Proxy via SSH Tunnelling')
     arg = parser.add_argument
+    arg('--direct', action='store_true',
+        help='do not use proxy; make direct connection to given address')
+    arg('address',  help='address to which to connect')
+    arg('port',     type=port, help='port to which to connect')
     args = parser.parse_args()
+
+    returnsock(opensock(args.address, args.port))
+
+def port(s):
+    port = int(s)
+    if port > 0 and port < 65536:
+        return port
+    raise ArgumentTypeError('Port not in range 1-65535: %s' % s)
+
+def opensock(address, port):
+    sock = socket.socket()
+    try:
+        sock.connect((address, port))
+    except IOError as e:
+        die(e)
+    return sock
+
+def returnsock(sock):
+    fds = array.array("i", [sock.fileno()])
+    ancdata = [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fds)]
+    stdout = 1
+    socket.socket(fileno=stdout).sendmsg([b'\0'], ancdata)
+
+def die(message):
+    sys.exit('{}: {}'.format(PROGNAME, message))
 
 if __name__ == '__main__':
     main()

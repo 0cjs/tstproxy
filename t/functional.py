@@ -89,10 +89,10 @@ class SSHTestServerProto(protocol.Protocol):
         #   or even use conch. But for now, just close.
         self.transport.loseConnection()
 
+port = randrange(10000, 65000)
+
 def test_ssh_and_server(reactor):
     '   OpenSSH client connects to our test server.   '
-    port = randrange(10000, 65000)
-
     factory = protocol.Factory.forProtocol(SSHTestServerProto)
     reactor.listenTCP(port, factory, interface='127.0.0.1')
 
@@ -102,6 +102,24 @@ def test_ssh_and_server(reactor):
         'ssh', ['ssh', '-T', '-p', str(port), '127.0.0.1'])
 
     reactor.run()
+    assert b'ssh_exchange_identification: Connection closed by remote host\r\n'\
+        == creceived[2]
+    assert [2] == list(creceived.keys())
+
+def test_ssh_via_tstproxy(reactor):
+    '   OpenSSH client connects to test server via testproxy-passed FD.   '
+    factory = protocol.Factory.forProtocol(SSHTestServerProto)
+    reactor.listenTCP(port, factory, interface='127.0.0.1')
+
+    creceived = {}
+    cproto = SSHClientProto(reactor, creceived)
+    reactor.spawnProcess(cproto, 'ssh', ['ssh',
+        '-o', 'ProxyCommand=bin/tstproxy --direct 127.0.0.1 %d' % port,
+        '-o', 'ProxyUseFdpass=yes',
+        '-T', '-p', str(port), '127.0.0.1'])
+    reactor.run()
+
+    # XXX need to check that factory received a connection
     assert b'ssh_exchange_identification: Connection closed by remote host\r\n'\
         == creceived[2]
     assert [2] == list(creceived.keys())
