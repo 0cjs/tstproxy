@@ -33,7 +33,7 @@ def test_reactor_fixture(reactor):
 
 #   Global configuration for all functional tests.
 os.environ.pop('SSH_AUTH_SOCK', None)
-DEVNULL = open(os.devnull, 'rwb')
+DEVNULL = open(os.devnull, 'r+b')
 
 def test_global_config():
     assert None is os.environ.get('SSH_AUTH_SOCK')
@@ -42,9 +42,9 @@ def test_tstproxy_help():
     p = Popen(['bin/tstproxy', '-h'], stdin=DEVNULL, stdout=PIPE, stderr=PIPE,
         env={}, bufsize=-1, close_fds=True)
     assert 0 == p.wait()
-    assert '' == p.stderr.read()    # XXX should close these?
+    assert b'' == p.stderr.read()    # XXX should close these?
     out = p.stdout.read()
-    assert re.search('usage: tstproxy', out), 'Unexpected stdout:\n' + out
+    assert re.search(b'usage: tstproxy', out), 'Unexpected stdout:\n' + out
 
 @pytest.mark.skip(reason='Slow test')
 def test_twisted_ssh_gpo(reactor):
@@ -68,7 +68,7 @@ class SSHClientProto(protocol.ProcessProtocol):
     def connectionMade(self):
         self.transport.closeStdin()     # Send no input
     def childDataReceived(self, fd, data):
-        s = self.received.setdefault(fd, '')
+        s = self.received.setdefault(fd, b'')
         self.received[fd] = s + data
     def processEnded(self, reason):
         self.reactor.stop()
@@ -79,8 +79,8 @@ def test_twisted_ssh(reactor):
     proto = SSHClientProto(reactor, received)
     reactor.spawnProcess(proto, 'ssh', ['ssh', '-h'])   # Empty environment
     reactor.run()
-    assert re.search('usage: ssh', received[2])
-    assert [2] == received.keys()   # Nothing but stderr
+    assert re.search(b'usage: ssh', received[2])
+    assert [2] == list(received.keys())     # Nothing but stderr
 
 class SSHTestServerProto(protocol.Protocol):
     def connectionMade(self):
@@ -102,6 +102,6 @@ def test_ssh_and_server(reactor):
         'ssh', ['ssh', '-T', '-p', str(port), '127.0.0.1'])
 
     reactor.run()
-    assert 'ssh_exchange_identification: Connection closed by remote host\r\n' \
+    assert b'ssh_exchange_identification: Connection closed by remote host\r\n'\
         == creceived[2]
-    assert [2] == creceived.keys()
+    assert [2] == list(creceived.keys())

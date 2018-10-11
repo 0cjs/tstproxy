@@ -6,7 +6,7 @@ cd "$basedir"
 trap 'echo "*** FAILED"; exit 1' 0
 
 echo ===== Setup
-. activate --python=python2
+. activate --python=python3
 
 echo ===== Functional Tests
 pytest -q t/functional.py "$@"
